@@ -4,7 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ffTTbb"
-        xmlns:conv="clr-namespace:ffTTbb.Converters"
+        xmlns:conv="clr-namespace:ffTTbb.Converters" Icon="a16_HCB_icon.ico"
         mc:Ignorable="d" Foreground="{StaticResource FifthBrush}"
         Title="Final Fantasy XIV: Triple Triad BABY!" MinHeight="600" Height="600" MinWidth="850" Width="850" 
         WindowStartupLocation="CenterScreen" Background="{StaticResource FourthBrush}">

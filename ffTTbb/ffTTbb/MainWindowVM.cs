@@ -14,8 +14,8 @@ namespace ffTTbb
 {
     public class MainWindowVM: INotifyPropertyChanged
     {
-        CardInfo _selectedCard;
-        public CardInfo SelectedCard
+        CardInfoDisplay _selectedCard;
+        public CardInfoDisplay SelectedCard
         {
             get
             {
@@ -70,35 +70,150 @@ namespace ffTTbb
             }
         }
 
-        List<CardInfo> _cards;
-        ObservableCollection<CardInfo> _displayedCards;
-        public ObservableCollection<CardInfo> DisplayedCards
+        string _collectedSearch;
+        public string CollectedSearch
         {
             get
             {
-                return _displayedCards;
+                return _collectedSearch;
             }
             set
             {
-                _displayedCards = value;
-                OnPropertyChanged(nameof(DisplayedCards));
+                _collectedSearch = value;
+                OnPropertyChanged(nameof(CollectedSearch));
+            }
+        }
+
+        string _minDifficultySearch;
+        public string MinDifficultySearch
+        {
+            get
+            {
+                return _minDifficultySearch;
+            }
+            set
+            {
+                _minDifficultySearch = value;
+                OnPropertyChanged(nameof(MinDifficultySearch));
+            }
+        }
+
+        string _maxDifficultySearch;
+        public string MaxDifficultySearch
+        {
+            get
+            {
+                return _maxDifficultySearch;
+            }
+            set
+            {
+                _maxDifficultySearch = value;
+                OnPropertyChanged(nameof(MaxDifficultySearch));
+            }
+        }
+
+        ObservableCollection<CardInfoDisplay> _cards;
+        public ObservableCollection<CardInfoDisplay> Cards
+        {
+            get
+            {
+                return _cards;
+            }
+            set
+            {
+                _cards = value;
+                OnPropertyChanged(nameof(Cards));
+            }
+        }
+
+        ObservableCollection<string> _cardNames;
+        public ObservableCollection<string> CardNames
+        {
+            get
+            {
+                return _cardNames;
+            }
+            set
+            {
+                _cardNames = value;
+                OnPropertyChanged(nameof(CardNames));
+            }
+        }
+
+        ObservableCollection<string> _npcNames;
+        public ObservableCollection<string> NPCNames
+        {
+            get
+            {
+                return _npcNames;
+            }
+            set
+            {
+                _npcNames = value;
+                OnPropertyChanged(nameof(NPCNames));
+            }
+        }
+
+        ObservableCollection<string> _patches;
+        public ObservableCollection<string> Patches
+        {
+            get
+            {
+                return _patches;
+            }
+            set
+            {
+                _patches = value;
+                OnPropertyChanged(nameof(Patches));
+            }
+        }
+
+        public List<string> _collectedOptions;
+        public List<string> CollectedOptions
+        {
+            get
+            {
+                return _collectedOptions;
+            }
+            set
+            {
+                _collectedOptions = value;
+                OnPropertyChanged(nameof(CollectedOptions));
             }
         }
 
         public MainWindowVM()
         {
-            _cards = DownloadCards();            
-            DisplayedCards = new ObservableCollection<CardInfo>();
-            foreach (var card in _cards)
+            Cards = new ObservableCollection<CardInfoDisplay>();
+            CardNames = new ObservableCollection<string>();
+            Patches = new ObservableCollection<string>();
+            NPCNames = new ObservableCollection<string>();
+            CollectedOptions = new List<string>(new string[] { "No Preference", "Collected", "Uncollected" });
+
+            var npcs = DownloadNpcs(); // using to cross-reference some data into card data (like WinAmount/Difficulty)
+
+            var collectedCards = LoadCollectedCards();
+            var cardInfos = DownloadCards();            
+            foreach (var cardInfo in cardInfos)
             {
-                card.LoadImages();
-                DisplayedCards.Add(card);
+                var difficulty = int.MaxValue;
+                foreach (var npcName in cardInfo.NPCs)
+                {
+                    var npc = npcs.FirstOrDefault(n => n.NpcName == npcName);
+                    if (npc != null && npc.WinAmount < difficulty)
+                        difficulty = npc.WinAmount;
+                }
+
+                var card = new CardInfoDisplay(cardInfo, difficulty == int.MaxValue ? 0 : difficulty);
+                card.IsDisplayed = true;
+                card.IsCollected = collectedCards.Contains(card.Info.Order.ToString());
+                Cards.Add(card);
             }
 
-            if (_cards.Count > 0)
-                SelectCard(_cards[0]);
+            DoSearch();
 
-            var npcs = DownloadNpcs();
+            if (Cards.Count > 0)
+                SelectCard(Cards[0]);
         }
 
         void LoadCards()
@@ -115,7 +230,7 @@ namespace ffTTbb
             //}
         }
 
-        public void SelectCard(CardInfo selectedCard)
+        public void SelectCard(CardInfoDisplay selectedCard)
         {
             foreach (var card in _cards)
             {
@@ -126,24 +241,122 @@ namespace ffTTbb
             SelectedCard.IsSelected = true;
         }
 
+        public List<string> LoadCollectedCards()
+        {
+            var collectedCards = new List<string>();
+
+            var logFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "collectedCards.log");
+            try
+            {
+                if (File.Exists(logFilePath))
+                {
+                    var collectedCardsStr = File.ReadAllText(logFilePath);
+                    if (collectedCardsStr != null)
+                        collectedCards = collectedCardsStr.Split(',').ToList();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show("There was an issue while attempting to load your card collection from disk: " + ex.Message, "Failed to Load Collection!");
+            }
+
+            return collectedCards;
+        }
+
+        public void SaveCollectedCards(List<string> collectedCards)
+        {
+            var collectedCardStr = "";
+            foreach (var collectedCard in collectedCards)
+            {
+                if (!string.IsNullOrEmpty(collectedCardStr))
+                    collectedCardStr += ",";
+                collectedCardStr += collectedCard;
+            }
+
+            try
+            {
+                var logFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "collectedCards.log");
+                File.WriteAllText(logFilePath, collectedCardStr);
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show("There was an issue while attempting to save your card collection: " + ex.Message, "Failed to Save Collection!");
+                return;
+            }
+        }
+
+        public void ToggleCollectedCard(CardInfoDisplay selectedCard)
+        {
+            var collectedCards = LoadCollectedCards();
+
+            if (!selectedCard.IsCollected && !collectedCards.Contains(selectedCard.Info.Order.ToString()))
+                collectedCards.Add(selectedCard.Info.Order.ToString());
+            else if (selectedCard.IsCollected && collectedCards.Contains(selectedCard.Info.Order.ToString()))
+                collectedCards.Remove(selectedCard.Info.Order.ToString());
+
+            SaveCollectedCards(collectedCards);
+
+            selectedCard.IsCollected = !selectedCard.IsCollected;
+        }
+
+        public void ResetSearch(bool doSearch = false)
+        {
+            CardNameSearch = "";
+            NPCNameSearch = "";
+            PatchSearch = "";
+
+            if (doSearch)
+                DoSearch();
+        }
+
         public void DoSearch()
         {
-            var displayedCards = _cards;
+            foreach (var card in Cards)
+            {
+                card.IsDisplayed = true;
+            }
+            
+            foreach (var card in Cards)
+            {
+                var isNameMatch = string.IsNullOrEmpty(CardNameSearch) ? true : card.Info.Name.ToLower().Contains(CardNameSearch.ToLower());
+                var isPatchMatch = string.IsNullOrEmpty(PatchSearch) ? true : card.Info.Patch.Contains(PatchSearch);
+                var isNpcMatch = string.IsNullOrEmpty(NPCNameSearch) ? true : card.Info.NPCs.FirstOrDefault(n => n.ToLower().Contains(NPCNameSearch.ToLower())) != null;
+                var isMinDifficultyMatch = string.IsNullOrEmpty(MinDifficultySearch) ? true : card.Difficulty >= int.Parse(MinDifficultySearch);
+                var isMaxDifficultyMatch = string.IsNullOrEmpty(MaxDifficultySearch) ? true : card.Difficulty <= int.Parse(MaxDifficultySearch);
+                var isCollectionMatch = string.IsNullOrEmpty(CollectedSearch) || CollectedSearch == "No Preference" ? true : (CollectedSearch == "Collected" && card.IsCollected) || (CollectedSearch == "Uncollected" && !card.IsCollected);
 
-            if (!string.IsNullOrEmpty(CardNameSearch))
-                displayedCards = displayedCards.Where(c => c.Name.ToLower().Contains(CardNameSearch.ToLower())).ToList();
+                card.IsDisplayed = isNameMatch && isPatchMatch && isNpcMatch && isMinDifficultyMatch && isMaxDifficultyMatch && isCollectionMatch;
+            }
 
-            if (!string.IsNullOrEmpty(NPCNameSearch))
-                displayedCards = displayedCards.Where(c => c.NPCs.FirstOrDefault(n => n.ToLower().Contains(NPCNameSearch.ToLower())) != null).ToList();
+            // store fields for resetting later
+            var cardName = CardNameSearch;
+            var patch = PatchSearch;
+            var npcName = NPCNameSearch;
 
-            if (!string.IsNullOrEmpty(PatchSearch))
-                displayedCards = displayedCards.Where(c => c.Patch.Contains(PatchSearch)).ToList();
+            CardNames.Clear();
+            Patches.Clear();
+            NPCNames.Clear();
 
-            DisplayedCards.Clear();
+            var displayedCards = Cards.Where(c => c.IsDisplayed);
             foreach (var displayedCard in displayedCards)
             {
-                DisplayedCards.Add(displayedCard);
+                if (!CardNames.Contains(displayedCard.Info.Name))
+                    CardNames.Add(displayedCard.Info.Name);
+
+                if (!Patches.Contains(displayedCard.Info.Patch))
+                    Patches.Add(displayedCard.Info.Patch);
+
+                foreach (var npc in displayedCard.Info.NPCs)
+                {
+                    if (!NPCNames.Contains(npc))
+                        NPCNames.Add(npc);
+                }
             }
+
+            // set fields back after the search
+            CardNameSearch = cardName;
+            PatchSearch = patch;
+            NPCNameSearch = npcName;
         }
 
         public List<CardInfo> DownloadCards()
@@ -196,20 +409,26 @@ namespace ffTTbb
                     var locationCells = locationList.ChildNodes.Where(n => n.Name == "li").ToList();
                     foreach (var locationCell in locationCells)
                     {
+                        var location = "";
                         if (locationCell.HasClass("aNpc"))
                         {
                             var npcCell = locationCell.ChildNodes.FirstOrDefault(n => n.Name == "a");
                             var npcName = npcCell.InnerHtml;
                             npcs.Add(npcName);
 
-                            var location = locationCell.LastChild.InnerHtml;
+                            location = locationCell.LastChild.InnerHtml;
                             if (location.StartsWith(", "))
                                 location = location.Substring(2);
-                            locations.Add(location);
                         }
                         else
                         {
-                            locations.Add(locationCell.InnerHtml);
+                            location = locationCell.InnerHtml;
+                        }
+
+                        if (!string.IsNullOrEmpty(location))
+                        {
+                            location = RemoveUnwantedTags(WebUtility.HtmlDecode(location));
+                            locations.Add(location);
                         }
                     }
                 }
@@ -231,6 +450,42 @@ namespace ffTTbb
             }
 
             return cards;
+        }
+
+        string RemoveUnwantedTags(string data)
+        {
+            if (string.IsNullOrEmpty(data)) return string.Empty;
+
+            var document = new HtmlDocument();
+            document.LoadHtml(data);
+
+            var acceptableTags = new String[] { "strong", "em", "u" };
+
+            var nodes = new Queue<HtmlNode>(document.DocumentNode.SelectNodes("./*|./text()"));
+            while (nodes.Count > 0)
+            {
+                var node = nodes.Dequeue();
+                var parentNode = node.ParentNode;
+
+                if (!acceptableTags.Contains(node.Name) && node.Name != "#text")
+                {
+                    var childNodes = node.SelectNodes("./*|./text()");
+
+                    if (childNodes != null)
+                    {
+                        foreach (var child in childNodes)
+                        {
+                            nodes.Enqueue(child);
+                            parentNode.InsertBefore(child, node);
+                        }
+                    }
+
+                    parentNode.RemoveChild(node);
+
+                }
+            }
+
+            return document.DocumentNode.InnerHtml;
         }
 
         public List<NpcInfo> DownloadNpcs()
@@ -313,6 +568,27 @@ namespace ffTTbb
             return result;
         }
 
+        public void DoSortBy(EnumCardField sortByField)
+        {
+            var sortedCards = new List<CardInfoDisplay>();
+            switch (sortByField)
+            {
+                case EnumCardField.Order:
+                    sortedCards = Cards.OrderBy(c => c.Info.Order).ToList();
+                    break;
+                case EnumCardField.Name:
+                    sortedCards = Cards.OrderBy(c => c.Info.Name).ToList();
+                    break;
+                case EnumCardField.Difficulty:
+                    sortedCards = Cards.OrderBy(c => c.Difficulty).ToList();
+                    break;
+                case EnumCardField.Patch:
+                    sortedCards = Cards.OrderBy(c => c.Info.Patch).ToList();
+                    break;
+            }
+            Cards = new ObservableCollection<CardInfoDisplay>(sortedCards);
+        }
+
         List<T> LoadFromFile<T>(string fileName)
         {
             var dataDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data");
@@ -328,5 +604,13 @@ namespace ffTTbb
             if (handler != null)
                 handler(this, new PropertyChangedEventArgs(propertyName));
         }
+    }
+
+    public enum EnumCardField
+    {
+        Order,
+        Name,
+        Difficulty,
+        Patch
     }
 }

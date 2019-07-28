@@ -4,9 +4,16 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ffTTbb"
+        xmlns:conv="clr-namespace:ffTTbb.Converters"
         mc:Ignorable="d" Foreground="{StaticResource FifthBrush}"
         Title="Final Fantasy XIV: Triple Triad BABY!" MinHeight="600" Height="600" MinWidth="850" Width="850" 
         WindowStartupLocation="CenterScreen" Background="{StaticResource FourthBrush}">
+    <Window.Resources>
+        <ResourceDictionary>
+            <BooleanToVisibilityConverter x:Key="BoolToVis" />
+            <conv:ZeroToHiddenConverter x:Key="ZeroToHide" />
+        </ResourceDictionary>
+    </Window.Resources>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition></RowDefinition>
@@ -16,70 +23,141 @@
             <ColumnDefinition></ColumnDefinition>
             <ColumnDefinition Width="275"></ColumnDefinition>
         </Grid.ColumnDefinitions>
-        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <ItemsControl ItemsSource="{Binding DisplayedCards}">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <WrapPanel />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border x:Name="CardWrapper" MouseDown="CardWrapper_MouseDown" BorderThickness="3" CornerRadius="2" Height="160" Width="120" Margin="5">
-                            <Border.Style>
-                                <Style TargetType="{x:Type Border}">
-                                    <Setter Property="Background" Value="{StaticResource SecondBrush}"></Setter>
-                                    <Setter Property="BorderBrush" Value="{StaticResource SecondBrush}"></Setter>
-                                    <Style.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter Property="BorderBrush" Value="{StaticResource FirstBrush}"></Setter>
-                                        </Trigger>
-                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                            <Setter Property="BorderBrush" Value="{StaticResource FifthBrush}"></Setter>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Border.Style>
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="auto"></RowDefinition>
-                                    <RowDefinition Height="132"></RowDefinition>
-                                </Grid.RowDefinitions>
-                                <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14" TextAlignment="Center" />
-                                <Image Grid.Row="1" Source="{Binding CardImage}" Margin="2" Height="128"/>
-                            </Grid>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </ScrollViewer>
-        <Grid Grid.Row="1" Grid.ColumnSpan="2" Margin="5">
+        <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition></RowDefinition>
-                <RowDefinition></RowDefinition>
-                <RowDefinition></RowDefinition>
-                <RowDefinition></RowDefinition>
+                <RowDefinition Height="auto" />
+                <RowDefinition />
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="auto"></ColumnDefinition>
                 <ColumnDefinition></ColumnDefinition>
             </Grid.ColumnDefinitions>
+            <TextBlock VerticalAlignment="Center" FontWeight="Bold" FontSize="16" Margin="5">Sort By:</TextBlock>
+                <ComboBox x:Name="SortByBox" Grid.Column="1" Margin="5" SelectionChanged="SortByBox_SelectionChanged">
+                    <ComboBox.Items>
+                        <ComboBoxItem>Card Number</ComboBoxItem>
+                        <ComboBoxItem>Card Name</ComboBoxItem>
+                        <ComboBoxItem>Difficulty</ComboBoxItem>
+                        <ComboBoxItem>Patch</ComboBoxItem>
+                    </ComboBox.Items>
+                </ComboBox>
+
+                <ScrollViewer Grid.Row="1" Grid.ColumnSpan="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl ItemsSource="{Binding Cards}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid x:Name="CardWrapper" Visibility="{Binding IsDisplayed, Converter={StaticResource BoolToVis}}" MouseLeftButtonDown="CardWrapper_MouseDown" ToolTip="Double-click this card to toggle having been collected. Right-click this card to search based on its details.">
+                                <Grid.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem x:Name="SearchNPCItem" Header="Search on NPC" ItemsSource="{Binding Info.NPCs}" Visibility="{Binding Info.NPCs.Count, Converter={StaticResource ZeroToHide}}">
+                                            <MenuItem.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock MouseLeftButtonDown="SearchNPCItem_Click" Text="{Binding}" />
+                                                </DataTemplate>
+                                            </MenuItem.ItemTemplate>
+                                        </MenuItem>
+                                        <MenuItem x:Name="SearchPatchItem" Header="Search on Patch" Click="SearchPatchItem_Click" />
+                                    </ContextMenu>
+                                </Grid.ContextMenu>
+                                <Border Background="{StaticResource FourthBrush}" Opacity=".9" Panel.ZIndex="999" Visibility="{Binding IsCollected, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Text="Collected!" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="18" FontWeight="Bold" />
+                                </Border>
+                                <Border BorderThickness="3" CornerRadius="2" Height="160" Width="120" Margin="5">
+                                    <Border.Style>
+                                        <Style TargetType="{x:Type Border}">
+                                            <Setter Property="Background" Value="{StaticResource SecondBrush}"></Setter>
+                                            <Setter Property="BorderBrush" Value="{StaticResource SecondBrush}"></Setter>
+                                            <Style.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="BorderBrush" Value="{StaticResource FirstBrush}"></Setter>
+                                                </Trigger>
+                                                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                    <Setter Property="BorderBrush" Value="{StaticResource FifthBrush}"></Setter>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="auto"></RowDefinition>
+                                            <RowDefinition Height="132"></RowDefinition>
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Text="{Binding Info.Name}" FontWeight="Bold" FontSize="14" TextAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Margin="2,0" />
+                                        <Image Grid.Row="1" Source="{Binding CardImage}" Margin="2" Height="128"/>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+        <Grid Grid.Row="1" Grid.ColumnSpan="2" Margin="5">
+            <Grid.RowDefinitions>
+                <RowDefinition></RowDefinition>
+                <RowDefinition></RowDefinition>
+                <RowDefinition></RowDefinition>
+                <RowDefinition Height="40"></RowDefinition>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="100"></ColumnDefinition>
+                <ColumnDefinition></ColumnDefinition>
+                <ColumnDefinition Width="110"></ColumnDefinition>
+                <ColumnDefinition></ColumnDefinition>
+            </Grid.ColumnDefinitions>           
             <TextBlock VerticalAlignment="Center" FontWeight="Bold" FontSize="16" Margin="5">Card Name:</TextBlock>
-            <ComboBox Grid.Column="1" Margin="5" IsEditable="True" Text="{Binding CardNameSearch}"></ComboBox>
+            <ComboBox x:Name="CardSearchBox" Grid.Column="1" Margin="5" IsEditable="True" Text="{Binding CardNameSearch}" ItemsSource="{Binding CardNames}" KeyDown="CardSearchBox_KeyDown"></ComboBox>
 
             <TextBlock Grid.Row="1" VerticalAlignment="Center" FontWeight="Bold" FontSize="16" Margin="5">NPC Name:</TextBlock>
-            <ComboBox Grid.Row="1" Grid.Column="1" Margin="5" IsEditable="True" Text="{Binding NPCNameSearch}"></ComboBox>
+            <ComboBox x:Name="NPCSearchBox" Grid.Row="1" Grid.Column="1" Margin="5" IsEditable="True" Text="{Binding NPCNameSearch}" ItemsSource="{Binding NPCNames}" KeyDown="NPCSearchBox_KeyDown"></ComboBox>
 
             <TextBlock Grid.Row="2" VerticalAlignment="Center" FontWeight="Bold" FontSize="16" Margin="5">Patch:</TextBlock>
-            <ComboBox Grid.Row="2" Grid.Column="1" Margin="5" IsEditable="True" Text="{Binding PatchSearch}"></ComboBox>
-            
-            <Button x:Name="SearchBtn" Click="SearchBtn_Click" Grid.Row="3" Grid.ColumnSpan="3" Margin="5" FontSize="16">Search</Button>
+            <ComboBox x:Name="PatchSearchBox" Grid.Row="2" Grid.Column="1" Margin="5" IsEditable="True" Text="{Binding PatchSearch}" ItemsSource="{Binding Patches}" KeyDown="PatchSearchBox_KeyDown"></ComboBox>
+
+            <TextBlock Grid.Column="2" VerticalAlignment="Center" FontWeight="Bold" FontSize="16" Margin="5">Collected:</TextBlock>
+            <ComboBox x:Name="CollectionSearchBox" Grid.Column="3" Margin="5" SelectedItem="{Binding CollectedSearch}" ItemsSource="{Binding CollectedOptions}" KeyDown="CollectionSearchBox_KeyDown" SelectionChanged="CollectionSearchBox_SelectionChanged" />
+
+            <TextBlock Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" FontWeight="Bold" FontSize="14" Margin="5">Min Difficulty:</TextBlock>
+            <TextBox x:Name="MinDifficultySearchBox" Grid.Row="1" Grid.Column="3" Margin="5" MaxLength="10" Text="{Binding MinDifficultySearch, Mode=TwoWay}" PreviewKeyDown="MinDifficultySearchBox_PreviewKeyDown" PreviewTextInput="MinDifficultySearchBox_PreviewTextInput" KeyDown="MinDifficultySearchBox_KeyDown"></TextBox>
+
+            <TextBlock Grid.Row="2" Grid.Column="2" VerticalAlignment="Center" FontWeight="Bold" FontSize="14" Margin="5">Max Difficulty:</TextBlock>
+            <TextBox x:Name="MaxDifficultySearchBox" Grid.Row="2" Grid.Column="3" Margin="5" MaxLength="10" Text="{Binding MaxDifficultySearch, Mode=TwoWay}" PreviewKeyDown="MaxDifficultySearchBox_PreviewKeyDown" PreviewTextInput="MaxDifficultySearchBox_PreviewTextInput" KeyDown="MaxDifficultySearchBox_KeyDown"></TextBox>
+
+            <Button Grid.Row="3" Grid.ColumnSpan="4" Margin="5" Foreground="White" FontWeight="Bold" FontSize="18" Content="Search" Click="SearchBtn_Click">
+                <Button.Style>
+                    <Style TargetType="{x:Type Button}">
+                        <Setter Property="Background" Value="{StaticResource SecondBrush}"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="{x:Type Button}">
+                                    <Border Background="{TemplateBinding Background}">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{StaticResource FirstBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="{StaticResource ThirdBrush}" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
         </Grid>
         <Border Grid.Column="1" BorderBrush="{StaticResource FifthBrush}" BorderThickness="3" Background="{StaticResource SecondBrush}">
             <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" Margin="3">
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="30"></RowDefinition>
+                        <RowDefinition Height="50"></RowDefinition>
                         <RowDefinition Height="266"></RowDefinition>
                         <RowDefinition Height="auto"></RowDefinition>
                     </Grid.RowDefinitions>
@@ -87,13 +165,14 @@
                         <ColumnDefinition Width="50"></ColumnDefinition>
                         <ColumnDefinition></ColumnDefinition>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Margin="5,2" FontSize="18" FontWeight="Bold" VerticalAlignment="Center" Text="{Binding SelectedCard.Order, StringFormat=#{0:D}}" />
-                    <TextBlock Grid.Column="1" Margin="2,2,2,2" VerticalAlignment="Center" FontWeight="Bold" FontSize="18" Text="{Binding SelectedCard.Name}" TextAlignment="Center" TextWrapping="Wrap"></TextBlock>
+                    <TextBlock Margin="5,2" FontSize="18" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Center" Text="{Binding SelectedCard.Info.Order, StringFormat=#{0:D}}" />
+                    <TextBlock Grid.Column="1" Margin="2,2,2,2" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold" FontSize="16" Text="{Binding SelectedCard.Info.Name}" TextAlignment="Center" TextWrapping="WrapWithOverflow"></TextBlock>
 
                     <Image Grid.Row="1" Grid.ColumnSpan="3" Source="{Binding SelectedCard.CardImage}" Height="256" Margin="5"></Image>
 
                     <Grid Grid.Row="2" Grid.ColumnSpan="2">
                         <Grid.RowDefinitions>
+                            <RowDefinition></RowDefinition>
                             <RowDefinition></RowDefinition>
                             <RowDefinition></RowDefinition>
                             <RowDefinition></RowDefinition>
@@ -103,14 +182,23 @@
                             <ColumnDefinition Width="auto"></ColumnDefinition>
                             <ColumnDefinition></ColumnDefinition>
                         </Grid.ColumnDefinitions>
-                        <TextBlock FontSize="14" FontWeight="Bold" Text="Rarity: " />
-                        <TextBlock Grid.Column="1" FontSize="14" Text="{Binding SelectedCard.Rarity, StringFormat={}{0:} Stars, FallbackValue=N/A}" />
+                        <TextBlock FontSize="14" FontWeight="Bold" Text="Difficulty: " ToolTip="Based on the lowest NPC win amount." />
+                        <TextBlock Grid.Column="1" FontSize="14" Text="{Binding SelectedCard.Difficulty, StringFormat={}{0:}, FallbackValue=N/A}" />
 
-                        <TextBlock Grid.Row="1" FontSize="14" FontWeight="Bold" Text="Patch: " />
-                        <TextBlock Grid.Row="1" Grid.Column="1" FontSize="14" Text="{Binding SelectedCard.Patch, FallbackValue=N/A}" />
+                        <TextBlock Grid.Row="1" FontSize="14" FontWeight="Bold" Text="Rarity: " />
+                        <TextBlock Grid.Row="1" Grid.Column="1" FontSize="14" Text="{Binding SelectedCard.Info.Rarity, StringFormat={}{0:} Star(s), FallbackValue=N/A}" />
 
-                        <TextBlock Grid.Row="2" FontSize="14" FontWeight="Bold" Text="Locations: " />
-                        <ItemsControl Grid.Row="3" Grid.ColumnSpan="2" Margin="5,0,0,0" ItemsSource="{Binding SelectedCard.Locations}" />
+                        <TextBlock Grid.Row="2" FontSize="14" FontWeight="Bold" Text="Patch: " />
+                        <TextBlock Grid.Row="2" Grid.Column="1" FontSize="14" Text="{Binding SelectedCard.Info.Patch, FallbackValue=N/A}" />
+
+                        <TextBlock Grid.Row="3" FontSize="14" FontWeight="Bold" Text="Locations: " />
+                        <ItemsControl Grid.Row="4" Grid.ColumnSpan="2" Margin="5,0,0,0" ItemsSource="{Binding SelectedCard.Info.Locations}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" TextWrapping="WrapWithOverflow" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </Grid>
                 </Grid>
             </ScrollViewer>
